@@ -1,8 +1,8 @@
 package com.example.demo.controller;
 
-import com.example.demo.request.LoginRequest;
-import com.example.demo.request.RegisterRequest;
-import com.example.demo.response.Response;
+import com.example.demo.dto.auth.LoginRequest;
+import com.example.demo.dto.auth.RegisterRequest;
+import com.example.demo.dto.Response;
 import com.example.demo.service.AuthService;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;

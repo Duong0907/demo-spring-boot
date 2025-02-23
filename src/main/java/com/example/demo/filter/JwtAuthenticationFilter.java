@@ -1,17 +1,35 @@
 package com.example.demo.filter;
 
+import com.example.demo.entity.User;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.dto.Response;
+import com.example.demo.security.CustomUserDetails;
 import com.example.demo.security.JwtAuthenticationToken;
+import com.example.demo.security.JwtService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 import java.io.IOException;
 
+@Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtService jwtService;
+    private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -24,20 +42,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 2. Check credentials and [authenticate | reject]
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setCharacterEncoding("UTF-8");
-            response.setHeader("Content-Type", "text/plain;charset=UTF-8");
-            response.getWriter().println(request.getHeader("Authorization"));
-            response.getWriter().println("who the fuck are you??");
+            handleJwtException(response, HttpStatus.UNAUTHORIZED, "JWT token not found");
             return;
         }
 
-        // Get token from Authorization header
         final String jwt = authHeader.substring(7);
 
+        Claims claims = jwtService.validateToken(jwt);
+        if (claims == null || jwtService.isTokenExpired(jwt)) {
+            handleJwtException(response, HttpStatus.UNAUTHORIZED, "You must provide a valid token");
+            return;
+        }
+
+        long userId = claims.get("id", Integer.class);
+        User user = userRepository.findById(userId).orElse(null);
+        UserDetails userDetails = new CustomUserDetails(user);
 
         // Create new context and save jwt as username
-        JwtAuthenticationToken jwtAuthenticationToken = new JwtAuthenticationToken(jwt);
+        Authentication jwtAuthenticationToken = new JwtAuthenticationToken(
+                userDetails,
+                userDetails.getPassword(),
+                userDetails.getAuthorities()
+        );
+
         SecurityContext newContext = SecurityContextHolder.getContext();
         newContext.setAuthentication(jwtAuthenticationToken);
         SecurityContextHolder.setContext(newContext);
@@ -50,12 +77,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 3. Call next
         filterChain.doFilter(request, response);
 
-        // 4. ...
+        // 4. No cleaning
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-        return request.getServletPath().startsWith("/auth")
-                || request.getServletPath().startsWith("/welcome");
+        // Declare no-need-checking-jwt routes here
+        return request.getServletPath().startsWith("/auth") || request.getServletPath().startsWith("/welcome");
+    }
+
+    private void handleJwtException(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+        // Create an error response object
+        Response errorResponse = Response.builder().statusCode(status).message(message).build();
+
+        response.setStatus(status.value());
+        response.setHeader("Content-Type", "application/json");
+        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

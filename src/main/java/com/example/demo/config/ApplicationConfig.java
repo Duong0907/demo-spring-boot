@@ -1,13 +1,19 @@
 package com.example.demo.config;
 
-import com.example.demo.filter.JwtAuthenticationFilter;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.security.CustomUserDetailsService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.userdetails.UserDetailsService;
 
 @Configuration
+@RequiredArgsConstructor
 public class ApplicationConfig {
-//    @Bean
-//    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-//        return new JwtAuthenticationFilter();
-//    }
+    private final UserRepository userRepository;
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return new CustomUserDetailsService(this.userRepository);
+    }
 }

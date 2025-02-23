@@ -1,34 +1,73 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.request.LoginRequest;
-import com.example.demo.request.RegisterRequest;
-import com.example.demo.response.Response;
+import com.example.demo.dto.auth.LoginRequest;
+import com.example.demo.dto.auth.RegisterRequest;
+import com.example.demo.dto.Response;
+import com.example.demo.security.CustomUserDetails;
+import com.example.demo.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class AuthService {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+
 
     public Response register(RegisterRequest registerRequest) {
+        User user = User.builder()
+                .username(registerRequest.getUsername())
+                .password(this.passwordEncoder.encode(registerRequest.getPassword()))
+                .email(registerRequest.getEmail())
+                .role(Role.USER)
+                .build();
+
+        User savedUser = this.userRepository.save(user);
+        savedUser.setPassword(null);
+
         return Response
-                .builder().
-                statusCode(HttpStatus.OK).
-                message("Register successfully").
-                data("null").
-                build();
+                .builder()
+                .statusCode(HttpStatus.OK)
+                .message("Register successfully")
+                .data(savedUser)
+                .build();
     }
 
     public Response login(LoginRequest loginRequest) {
-        return Response
-                .builder().
-                statusCode(HttpStatus.OK).
-                message("Login successfully").
-                data("null").
-                build();
+        try {
+            Authentication authentication = this.authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String jwt = jwtService.generateToken(userDetails);
+
+            return Response
+                    .builder()
+                    .statusCode(HttpStatus.OK)
+                    .message("Login successfully")
+                    .data(jwt)
+                    .build();
+        } catch (AuthenticationException authException) {
+            return Response.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED)
+                    .message("Wrong username or password")
+                    .build();
+        }
     }
 }

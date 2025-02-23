@@ -1,25 +1,33 @@
 package com.example.demo.security;
 
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
 
 
 public class JwtAuthenticationToken extends AbstractAuthenticationToken {
-    private final String username;
 
-    public JwtAuthenticationToken(String username) {
-        super(AuthorityUtils.createAuthorityList("ROLE_USER"));
-        this.username = username;
+    private final UserDetails principal;
+    private final String credentials;
+
+    public JwtAuthenticationToken(UserDetails userPrincipal, String userCredentials, Collection<? extends GrantedAuthority> authorities) {
+        super(authorities);
+        this.principal = userPrincipal;
+        this.credentials = userCredentials;
     }
+
 
     @Override
     public Object getCredentials() {
-        return null;
+        return this.credentials;
     }
 
     @Override
     public Object getPrincipal() {
-        return this.username;
+        return this.principal;
     }
 
     @Override

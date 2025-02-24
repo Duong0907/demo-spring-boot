@@ -58,7 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         User user = userRepository.findById(userId).orElse(null);
         UserDetails userDetails = new CustomUserDetails(user);
 
-        // Create new context and save jwt as username
+        // Create and save new authentication token
         Authentication jwtAuthenticationToken = new JwtAuthenticationToken(
                 userDetails,
                 userDetails.getPassword(),

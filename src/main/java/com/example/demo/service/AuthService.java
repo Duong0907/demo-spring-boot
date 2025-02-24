@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.user.UserDto;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
+import com.example.demo.exception.CustomException;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.RegisterRequest;
@@ -29,19 +31,21 @@ public class AuthService {
     public Response register(RegisterRequest registerRequest) {
         User user = User.builder()
                 .username(registerRequest.getUsername())
-                .password(this.passwordEncoder.encode(registerRequest.getPassword()))
+                .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .email(registerRequest.getEmail())
-                .role(Role.USER)
+                .role(Role.USER)    // Register for normal users
                 .build();
 
         User savedUser = this.userRepository.save(user);
         savedUser.setPassword(null);
 
+        UserDto userDto = new UserDto(savedUser);
+
         return Response
                 .builder()
                 .statusCode(HttpStatus.OK)
                 .message("Register successfully")
-                .data(savedUser)
+                .data(userDto)
                 .build();
     }
 
@@ -64,10 +68,7 @@ public class AuthService {
                     .data(jwt)
                     .build();
         } catch (AuthenticationException authException) {
-            return Response.builder()
-                    .statusCode(HttpStatus.UNAUTHORIZED)
-                    .message("Wrong username or password")
-                    .build();
+            throw new CustomException(HttpStatus.UNAUTHORIZED, "Wrong username or password");
         }
     }
 }
